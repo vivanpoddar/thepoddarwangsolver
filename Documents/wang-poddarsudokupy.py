@@ -90,7 +90,7 @@ class SudokuBoard:
                     print("naked single found")
                     board.update_all_candidates() 
 
-                    board.difficulty+=8
+                    board.difficulty+=2.3
                     progress = True
         return progress
 
@@ -111,7 +111,7 @@ class SudokuBoard:
                     board.update_all_candidates()
                     print("hidden single found")
                     
-                    board.difficulty+=3
+                    board.difficulty+=1.5
                     progress = True
         return progress
 
@@ -141,7 +141,7 @@ class SudokuBoard:
                                     board.grid[row][c].candidates.discard(digit)
                                     print("pointing pair/triple found")
                                     
-                                    board.difficulty +=9
+                                    board.difficulty +=2.6
                                     progress = True
 
                         if len(cols) == 1:
@@ -150,7 +150,7 @@ class SudokuBoard:
                                 if r // 3 != box_row and digit in board.grid[r][col].candidates:
                                     board.grid[r][col].candidates.discard(digit)
                                     print("pointing pair/triple found")
-                                    board.difficulty +=9
+                                    board.difficulty +=2.6
                                     progress = True
 
         return progress
@@ -175,7 +175,7 @@ class SudokuBoard:
                                     board.grid[r][c].candidates.discard(digit)
                                     print("box-line reduction found")
                                     
-                                    board.difficulty +=20
+                                    board.difficulty +=2.8
                                     progress = True
 
         for col in range(9):
@@ -194,7 +194,7 @@ class SudokuBoard:
                                 if digit in board.grid[r][c].candidates:
                                     board.grid[r][c].candidates.discard(digit)
                                     print("box-line reduction found")
-                                    board.difficulty +=20
+                                    board.difficulty +=2.8
                                     progress = True
 
         return progress
@@ -219,7 +219,7 @@ class SudokuBoard:
                             if len(cell.candidates) < before:
                                 print("naked pair found")
                                 
-                                board.difficulty+=27.5#35 for triple
+                                board.difficulty+=3.0 #35 for triple
                                 progress = True
 
         return progress
@@ -246,7 +246,7 @@ class SudokuBoard:
                             cell.candidates &= {d1, d2}
                             if cell.candidates != before:
                                 print("Hidden pair found")
-                                board.difficulty+=37.5 #55 for triple
+                                board.difficulty+=3.4 #55 for triple
                                 progress = True
 
         return progress
@@ -275,7 +275,7 @@ class SudokuBoard:
                                     if digit in cell.candidates:
                                         cell.candidates.discard(digit)
                                         print("X-Wing found")
-                                        board.difficulty += 45
+                                        board.difficulty += 3.2
                                         progress = True
 
             col_positions = []
@@ -297,41 +297,68 @@ class SudokuBoard:
                                     if digit in cell.candidates:
                                         cell.candidates.discard(digit)
                                         print("X-Wing found")
-                                        board.difficulty += 45
+                                        board.difficulty += 3.2
                                         progress = True
 
         return progress
-
-    def apply_chute_remote_pairs(board):
+    
+    def apply_swordfish(board):
         progress = False
 
         for digit in range(1, 10):
-            positions = [(r, c) for r in range(9) for c in range(9) if digit in board.grid[r][c].candidates]
+            row_positions = []
+            for row in range(9):
+                cols = [col for col in range(9) if digit in board.grid[row][col].candidates]
+                if 2 <= len(cols) <= 3:
+                    row_positions.append((row, cols))
 
-            for (r1, c1), (r2, c2) in combinations(positions, 2):
-                if r1 // 3 == r2 // 3 and c1 // 3 == c2 // 3:
-                    continue
+            for r1, cols1 in row_positions:
+                for r2, cols2 in row_positions:
+                    if r1 >= r2:
+                        continue
+                    for r3, cols3 in row_positions:
+                        if r2 >= r3:
+                            continue
+                        common_cols = set(cols1) & set(cols2) & set(cols3)
+                        if len(common_cols) == 3:
+                            for row in range(9):
+                                if row not in [r1, r2, r3]:
+                                    for col in common_cols:
+                                        cell = board.grid[row][col]
+                                        if digit in cell.candidates:
+                                            cell.candidates.discard(digit)
+                                            print("Swordfish found (row-based)")
+                                            board.difficulty += 4.2
+                                            progress = True
 
-                if r1 == r2 or c1 == c2:
-                    continue
+            col_positions = []
+            for col in range(9):
+                rows = [row for row in range(9) if digit in board.grid[row][col].candidates]
+                if 2 <= len(rows) <= 3:
+                    col_positions.append((col, rows))
 
-                if (r1 // 3 == r2 // 3) or (c1 // 3 == c2 // 3):
-                    continue
-
-                for r in range(9):
-                    for c in range(9):
-                        if (r != r1 and r != r2) and (c != c1 and c != c2):
-                            cell = board.grid[r][c]
-                            if digit in cell.candidates:
-                                cell.candidates.discard(digit)
-                                print("chute remote pair found")
-                                board.difficulty+=150
-                                progress = True
+            for c1, rows1 in col_positions:
+                for c2, rows2 in col_positions:
+                    if c1 >= c2:
+                        continue
+                    for c3, rows3 in col_positions:
+                        if c2 >= c3:
+                            continue
+                        common_rows = set(rows1) & set(rows2) & set(rows3)
+                        if len(common_rows) == 3:
+                            for col in range(9):
+                                if col not in [c1, c2, c3]:
+                                    for row in common_rows:
+                                        cell = board.grid[row][col]
+                                        if digit in cell.candidates:
+                                            cell.candidates.discard(digit)
+                                            print("Swordfish found (column-based)")
+                                            board.difficulty += 4.2
+                                            progress = True
 
         return progress
     
     def apply_hidden_triples(board):
-        board.difficulty+=18
         progress = False
 
         for unit in get_all_units(board):
@@ -355,14 +382,12 @@ class SudokuBoard:
                         cell.candidates &= {d1, d2, d3} 
                         if cell.candidates != before:
                             print("hidden triple found")
-                            board.difficulty += 55
+                            board.difficulty += 4.0
                             progress = True
 
         return progress
 
     def apply_naked_triples(board):
-        board.difficulty+=18
-
         progress = False
 
         for unit in get_all_units(board): 
@@ -387,7 +412,7 @@ class SudokuBoard:
                                 cell.candidates -= combined_candidates
                                 if len(cell.candidates) < before:
                                     print("naked triple found")
-                                    board.difficulty += 35
+                                    board.difficulty += 3.6
                                     progress = True
 
         return progress
@@ -403,7 +428,7 @@ class SudokuBoard:
             self.apply_x_wing,
             self.apply_naked_triples,
             self.apply_hidden_triples,
-            self.apply_chute_remote_pairs
+            self.apply_swordfish
         ]
 
         while True:
@@ -433,6 +458,18 @@ class SudokuBoard:
 #     [7, 2, 6, 8, 0, 0, 3, 0, 9]
 # ]
 
+# example_board = [ #easy
+#     [2, 8, 3, 1, 0, 5, 0, 0, 0],
+#     [0, 1, 0, 0, 0, 8, 3, 0, 2],
+#     [0, 0, 0, 2, 3, 0, 5, 0, 0],
+#     [1, 0, 8, 0, 0, 0, 4, 0, 0],
+#     [4, 2, 0, 0, 0, 0, 6, 0, 8],
+#     [7, 0, 0, 5, 0, 0, 0, 1, 9],
+#     [0, 5, 7, 0, 9, 0, 1, 4, 0],
+#     [9, 6, 0, 4, 1, 0, 8, 5, 0],
+#     [0, 0, 0, 8, 5, 7, 0, 0, 0]
+# ]
+
 # example_board = [ # medium
 #     [0, 9, 0, 5, 1, 0, 0, 7, 2],
 #     [5, 0, 7, 0, 0, 4, 0, 0, 1],
@@ -445,32 +482,32 @@ class SudokuBoard:
 #     [0, 0, 0, 0, 3, 0, 0, 0, 0]
 # ]
 
-example_board = [ #medium
-    [0, 0, 0, 6, 0, 0, 0, 0, 7],
-    [0, 7, 8, 0, 0, 0, 0, 0, 5],
-    [2, 0, 5, 0, 0, 0, 6, 0, 0],
-    [0, 0, 2, 0, 0, 1, 3, 4, 0],
-    [0, 0, 0, 2, 0, 0, 0, 0, 1],
-    [8, 0, 0, 7, 4, 0, 0, 5, 6],
-    [0, 9, 0, 8, 6, 0, 1, 3, 0],
-    [1, 0, 6, 0, 7, 0, 5, 0, 8],
-    [0, 0, 0, 0, 0, 9, 0, 0, 0]
-]
-
-
-# example_board = [ extreme
-#     [0, 0, 2, 0, 3, 0, 0, 0, 0],
-#     [0, 6, 0, 0, 0, 0, 0, 3, 1],
-#     [4, 1, 0, 8, 0, 0, 0, 7, 0],
-#     [5, 0, 0, 3, 0, 0, 0, 0, 0],
-#     [0, 9, 0, 0, 0, 0, 0, 0, 6],
-#     [0, 4, 0, 2, 0, 8, 0, 9, 0],
-#     [0, 0, 0, 6, 8, 2, 0, 0, 4],
-#     [7, 0, 0, 0, 0, 0, 0, 0, 0],
-#     [0, 0, 0, 5, 9, 0, 0, 6,0]
+# example_board = [ #medium
+#     [0, 0, 0, 6, 0, 0, 0, 0, 7],
+#     [0, 7, 8, 0, 0, 0, 0, 0, 5],
+#     [2, 0, 5, 0, 0, 0, 6, 0, 0],
+#     [0, 0, 2, 0, 0, 1, 3, 4, 0],
+#     [0, 0, 0, 2, 0, 0, 0, 0, 1],
+#     [8, 0, 0, 7, 4, 0, 0, 5, 6],
+#     [0, 9, 0, 8, 6, 0, 1, 3, 0],
+#     [1, 0, 6, 0, 7, 0, 5, 0, 8],
+#     [0, 0, 0, 0, 0, 9, 0, 0, 0]
 # ]
 
-# example_board = [  #extreme
+
+example_board = [ #extreme
+    [0, 0, 2, 0, 3, 0, 0, 0, 0],
+    [0, 6, 0, 0, 0, 0, 0, 3, 1],
+    [4, 1, 0, 8, 0, 0, 0, 7, 0],
+    [5, 0, 0, 3, 0, 0, 0, 0, 0],
+    [0, 9, 0, 0, 0, 0, 0, 0, 6],
+    [0, 4, 0, 2, 0, 8, 0, 9, 0],
+    [0, 0, 0, 6, 8, 2, 0, 0, 4],
+    [7, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 5, 9, 0, 0, 6,0]
+]
+
+# example_board = [  #hard
 #     [9, 0, 0, 3, 1, 0, 0, 0, 0],
 #     [0, 8, 0, 0, 0, 0, 3, 0, 0],
 #     [2, 0, 0, 0, 0, 0, 0, 0, 7],
@@ -506,19 +543,13 @@ example_board = [ #medium
 #   [0, 0, 0, 9, 0, 4, 8, 7, 0]
 # ]
 
-# example_board = [ extreme
-#   [2, 0, 6, 0, 0, 0, 0, 0, 0],
-#   [0, 0, 0, 8, 0, 0, 0, 0, 3],
-#   [0, 9, 0, 0, 0, 2, 0, 0, 1],
-#   [0, 3, 0, 0, 0, 4, 0, 5, 0],
-#   [0, 5, 8, 2, 0, 0, 0, 0, 0],
-#   [0, 0, 0, 5, 1, 0, 0, 8, 0],
-#   [0, 0, 0, 0, 0, 0, 0, 0, 9],
-#   [0, 0, 5, 0, 9, 7, 1, 3, 0],
-#   [0, 0, 9, 3, 0, 8, 2, 0, 0]
-# ]
+# example_board = []
+# s="008300200300000008020048000000070510000023000090010703407000000005704002800060300"
+# for i in range(0, 81, 9):
+#     row = [int(char) for char in s[i:i+9]]
+#     example_board.append(row)
 
-# example_board = [
+# example_board = [ #medium
 #   [0, 0, 0, 3, 9, 0, 0, 7, 0],
 #   [2, 0, 0, 0, 6, 0, 4, 0, 0],
 #   [8, 0, 0, 0, 0, 1, 0, 0, 0],
@@ -529,18 +560,18 @@ example_board = [ #medium
 #   [0, 0, 5, 0, 0, 0, 8, 0, 0],
 #   [0, 0, 0, 0, 2, 0, 1, 0, 9]
 # ]
-
-example_board = [
-  [0, 0, 4, 0, 0, 0, 0, 5, 0],
-  [0, 6, 7, 0, 0, 5, 0, 1, 4],
-  [0, 1, 0, 4, 0, 0, 0, 0, 8],
-  [0, 7, 0, 0, 0, 3, 0, 0, 0],
-  [0, 0, 8, 0, 4, 0, 0, 0, 3],
-  [0, 0, 0, 9, 0, 1, 5, 0, 0],
-  [0, 0, 1, 0, 7, 0, 0, 2, 0],
-  [0, 0, 9, 0, 0, 6, 0, 0, 0],
-  [6, 0, 5, 0, 3, 0, 0, 7, 0]
-]
+ 
+# example_board = [ #extrem
+#   [0, 0, 4, 0, 0, 0, 0, 5, 0],
+#   [0, 6, 7, 0, 0, 5, 0, 1, 4],
+#   [0, 1, 0, 4, 0, 0, 0, 0, 8],
+#   [0, 7, 0, 0, 0, 3, 0, 0, 0],
+#   [0, 0, 8, 0, 4, 0, 0, 0, 3],
+#   [0, 0, 0, 9, 0, 1, 5, 0, 0],
+#   [0, 0, 1, 0, 7, 0, 0, 2, 0],
+#   [0, 0, 9, 0, 0, 6, 0, 0, 0],
+#   [6, 0, 5, 0, 3, 0, 0, 7, 0]
+# ]
 
 # example_board = [ #ludicrous - unsolvable
 #   [0, 3, 0, 0, 0, 6, 0, 0, 5],
